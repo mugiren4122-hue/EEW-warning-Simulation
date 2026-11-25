@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>緊急地震速報 Live Activity</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800;900&family=Noto+Sans+JP:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 20% 20%, #1c1936 0%, #090814 55%, #030308 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Hiragino Sans", "Noto Sans JP", "Inter", sans-serif;
+      padding: 16px;
+      color: #ffffff;
+    }
+
+    /* Live Activity 外枠カード */
+    .live-activity-wrapper {
+      width: 100%;
+      max-width: 440px;
+      border-radius: 26px;
+      background-color: #0b0b0d;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.12);
+    }
+
+    /* 上部赤黒ハザードストライプ */
+    .hazard-bar {
+      height: 11px;
+      width: 100%;
+      background: repeating-linear-gradient(
+        -52deg,
+        #0d0d0f 0px,
+        #0d0d0f 8px,
+        #d92626 8px,
+        #d92626 16px
+      );
+      border-bottom: 1px solid rgba(0, 0, 0, 0.4);
+    }
+
+    /* 上部レッドセクション */
+    .top-alert-panel {
+      background: linear-gradient(180deg, #980f0f 0%, #860c0c 100%);
+      padding: 13px 18px 15px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .top-left-info {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .report-subtitle {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.92);
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+      margin-bottom: 3px;
+    }
+
+    .epicenter-headline {
+      font-size: 21px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+      white-space: nowrap;
+    }
+
+    /* 右上 MAX 6強 ブロック */
+    .max-intensity-display {
+      display: flex;
+      align-items: baseline;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .max-num {
+      font-family: "Inter", sans-serif;
+      font-size: 46px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.04em;
+      line-height: 0.9;
+    }
+
+    .max-sub-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      margin-left: 2px;
+      line-height: 1;
+    }
+
+    .max-tag {
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: 0.02em;
+      margin-bottom: 2px;
+    }
+
+    .max-kanji {
+      font-size: 20px;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1;
+    }
+
+    /* 下部ブラックセクション */
+    .bottom-detail-panel {
+      background-color: #0b0b0d;
+      padding: 14px 18px 16px 18px;
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    /* 下部左側：発生時刻・警戒バッジ・M・深さ */
+    .bottom-left {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      flex: 1;
+    }
+
+    .occurrence-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      font-size: 13.5px;
+      line-height: 1.2;
+    }
+
+    .occurrence-label {
+      color: rgba(255, 255, 255, 0.85);
+      font-weight: 600;
+    }
+
+    .occurrence-time {
+      font-family: "Inter", sans-serif;
+      color: #ffffff;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.01em;
+    }
+
+    .warning-pill {
+      display: inline-flex;
+      align-items: center;
+      align-self: flex-start;
+      background-color: #cc1616;
+      color: #ffffff;
+      font-size: 14.5px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin: 7px 0 6px 0;
+      letter-spacing: 0.01em;
+      line-height: 1.25;
+      transition: background-color 0.2s ease;
+    }
+
+    @keyframes alertRedPulse {
+      0%, 100% {
+        background-color: #e61919;
+        box-shadow: 0 0 12px rgba(255, 45, 45, 0.85), inset 0 0 0 1px rgba(255, 190, 190, 0.45);
+        color: #ffffff;
+      }
+      50% {
+        background-color: #5c0707;
+        box-shadow: 0 0 2px rgba(204, 22, 22, 0.15), inset 0 0 0 1px rgba(255, 80, 80, 0.2);
+        color: rgba(255, 255, 255, 0.72);
+      }
+    }
+
+    .warning-pill.is-blinking {
+      animation: alertRedPulse 0.9s infinite ease-in-out;
+    }
+
+    .hypocenter-metrics {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
+      line-height: 1;
+    }
+
+    .metric-group {
+      display: inline-flex;
+      align-items: baseline;
+    }
+
+    .metric-prefix {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.9);
+      margin-right: 3px;
+    }
+
+    .metric-val {
+      font-family: "Inter", sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-unit {
+      font-family: "Inter", sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-left: 1px;
+    }
+
+    /* 下部右側：現在地カウントダウン + 予想震度バッジ */
+    .bottom-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .countdown-text-block {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+    }
+
+    .countdown-labels {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.88);
+      line-height: 1.3;
+    }
+
+    .countdown-readout {
+      display: flex;
+      align-items: baseline;
+      justify-content: flex-end;
+      min-width: 82px;
+      line-height: 1;
+      margin-top: 4px;
+    }
+
+    .countdown-digits {
+      font-family: "Inter", sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .countdown-sec {
+      font-size: 14px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-left: 2px;
+    }
+
+    /* 黄色い予想震度バッジ（5弱） */
+    .local-intensity-badge {
+      width: 66px;
+      height: 76px;
+      background-color: #f4a400;
+      border-radius: 12px;
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      padding-top: 13px;
+      color: #0b0b0d;
+      flex-shrink: 0;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .badge-num {
+      font-family: "Inter", sans-serif;
+      font-size: 46px;
+      font-weight: 900;
+      line-height: 0.9;
+      letter-spacing: -0.04em;
+    }
+
+    .badge-suffix {
+      font-size: 20px;
+      font-weight: 900;
+      line-height: 1;
+      margin-left: 1px;
+    }
+
+    /* シミュレーター設定パネル */
+    .sim-panel {
+      margin-top: 16px;
+      width: 100%;
+      max-width: 440px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 16px;
+      backdrop-filter: blur(12px);
+    }
+
+    .sim-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .sim-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .sim-field.full-span {
+      grid-column: span 2;
+    }
+
+    .sim-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .sim-input, .sim-select {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 10px;
+      padding: 7px 10px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #ffffff;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .sim-input:focus, .sim-select:focus {
+      border-color: #f4a400;
+    }
+
+    .sim-input-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .mini-now-btn {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      padding: 0 10px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #ffffff;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s ease;
+    }
+
+    .mini-now-btn:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    .sim-select option {
+      background-color: #16161d;
+      color: #ffffff;
+    }
+
+    /* 再生コントロール（下部控えめ配置） */
+    .controls-bar {
+      margin-top: 14px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .ctrl-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .ctrl-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+    }
+
+    .ctrl-btn:active {
+      transform: scale(0.97);
+    }
+
+    @media (max-width: 400px) {
+      .epicenter-headline {
+        font-size: 18px;
+      }
+      .max-num {
+        font-size: 40px;
+      }
+      .metric-val, .countdown-digits {
+        font-size: 24px;
+      }
+      .local-intensity-badge {
+        width: 58px;
+        height: 68px;
+        padding-top: 11px;
+      }
+      .badge-num {
+        font-size: 40px;
+      }
+      .badge-suffix {
+        font-size: 17px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- iOS Live Activity Card -->
+  <div class="live-activity-wrapper" role="region" aria-label="緊急地震速報 ライブアクティビティ">
+    <!-- 上部警告ストライプ -->
+    <div class="hazard-bar"></div>
+
+    <!-- 上段：警報ヘッダー＋最大震度 -->
+    <div class="top-alert-panel" id="topAlertPanel">
+      <div class="top-left-info">
+        <div class="report-subtitle" id="reportSubtitle">緊急地震速報 (警報) 第32報</div>
+        <div class="epicenter-headline" id="epicenterHeadline">石川県で地震 北陸で強い揺れ</div>
+      </div>
+
+      <div class="max-intensity-display" id="maxIntensityDisplay" aria-label="最大震度6強">
+        <span class="max-num" id="maxNum">6</span>
+        <div class="max-sub-stack">
+          <span class="max-tag">MAX</span>
+          <span class="max-kanji" id="maxKanji">強</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 下段：発生情報＋現在地カウントダウン＋予想震度 -->
+    <div class="bottom-detail-panel">
+      <!-- 左側情報 -->
+      <div class="bottom-left">
+        <div class="occurrence-row">
+          <span class="occurrence-label">地震発生</span>
+          <span class="occurrence-time" id="occurrenceTime">11/25 12:04:47</span>
+        </div>
+
+        <div class="warning-pill" id="warningPill">強い揺れに警戒!</div>
+
+        <div class="hypocenter-metrics">
+          <div class="metric-group">
+            <span class="metric-prefix">M</span>
+            <span class="metric-val" id="magDisplay">7.6</span>
+          </div>
+          <div class="metric-group">
+            <span class="metric-prefix">深さ</span>
+            <span class="metric-val" id="depthDisplay">10</span>
+            <span class="metric-unit">km</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側カウントダウン＆予想震度 -->
+      <div class="bottom-right">
+        <div class="countdown-text-block">
+          <div class="countdown-labels">
+            <div>現在地</div>
+            <div>揺れ到達まで</div>
+          </div>
+          <div class="countdown-readout">
+            <span class="countdown-digits" id="countdownDigits">26.8</span>
+            <span class="countdown-sec">秒</span>
+          </div>
+        </div>
+
+        <div class="local-intensity-badge" id="localIntensityBadge" aria-label="現在地予想震度5弱">
+          <span class="badge-num" id="localNum">5</span>
+          <span class="badge-suffix" id="localSuffix">弱</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- リプレイ操作ボタン -->
+  <div class="controls-bar">
+    <button type="button" class="ctrl-btn" id="replayBtn">最初から再生 (26.8秒)</button>
+    <button type="button" class="ctrl-btn" id="toggleBtn">一時停止</button>
+  </div>
+
+  <!-- シミュレーション設定パネル -->
+  <div class="sim-panel">
+    <div class="sim-grid">
+      <div class="sim-field full-span">
+        <label class="sim-label" for="inputHeadline">見出し（震源・強い揺れの地域）</label>
+        <input type="text" id="inputHeadline" class="sim-input" value="石川県で地震 北陸で強い揺れ">
+      </div>
+
+      <div class="sim-field full-span">
+        <label class="sim-label" for="inputOccurrenceTime">地震発生時刻</label>
+        <div class="sim-input-row">
+          <input type="text" id="inputOccurrenceTime" class="sim-input" value="11/25 12:04:47" placeholder="MM/DD HH:MM:SS">
+          <button type="button" id="nowTimeBtn" class="mini-now-btn">現在時刻</button>
+        </div>
+      </div>
+
+      <div class="sim-field">
+        <label class="sim-label" for="inputMag">マグニチュード (M)</label>
+        <input type="number" id="inputMag" class="sim-input" value="7.6" step="0.1" min="1.0" max="9.9">
+      </div>
+
+      <div class="sim-field">
+        <label class="sim-label" for="inputDepth">深さ (km)</label>
+        <input type="number" id="inputDepth" class="sim-input" value="10" step="10" min="0" max="700">
+      </div>
+
+      <div class="sim-field">
+        <label class="sim-label" for="selectMaxInt">最大震度</label>
+        <select id="selectMaxInt" class="sim-select">
+          <option value="7">震度 7</option>
+          <option value="6強" selected>震度 6強</option>
+          <option value="6弱">震度 6弱</option>
+          <option value="5強">震度 5強</option>
+          <option value="5弱">震度 5弱</option>
+          <option value="4">震度 4</option>
+          <option value="3">震度 3</option>
+        </select>
+      </div>
+
+      <div class="sim-field">
+        <label class="sim-label" for="selectLocalInt">現在地の震度</label>
+        <select id="selectLocalInt" class="sim-select">
+          <option value="7">震度 7</option>
+          <option value="6強">震度 6強</option>
+          <option value="6弱">震度 6弱</option>
+          <option value="5強">震度 5強</option>
+          <option value="5弱" selected>震度 5弱</option>
+          <option value="4">震度 4</option>
+          <option value="3">震度 3</option>
+          <option value="2">震度 2</option>
+          <option value="1">震度 1</option>
+        </select>
+      </div>
+
+      <div class="sim-field full-span">
+        <label class="sim-label" for="inputSeconds">揺れ到達までの秒数 (秒)</label>
+        <input type="number" id="inputSeconds" class="sim-input" value="26.8" step="0.1" min="0" max="180">
+      </div>
+
+      <div class="sim-field">
+        <label class="sim-label" for="inputReportNum">報数 (第◯報)</label>
+        <input type="number" id="inputReportNum" class="sim-input" value="32" step="1" min="1" max="99">
+      </div>
+
+      <div class="sim-field">
+        <label class="sim-label" for="selectFinalReport">最終報フラグ</label>
+        <select id="selectFinalReport" class="sim-select">
+          <option value="false" selected>通常報</option>
+          <option value="true">最終報</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      let startSeconds = 26.8;
+      let remaining = startSeconds;
+      let isRunning = true;
+      let lastTimestamp = null;
+
+      const digitsEl = document.getElementById('countdownDigits');
+      const replayBtn = document.getElementById('replayBtn');
+      const toggleBtn = document.getElementById('toggleBtn');
+
+      // 表示要素
+      const topAlertPanel = document.getElementById('topAlertPanel');
+      const reportSubtitle = document.getElementById('reportSubtitle');
+      const epicenterHeadline = document.getElementById('epicenterHeadline');
+      const maxNumEl = document.getElementById('maxNum');
+      const maxKanjiEl = document.getElementById('maxKanji');
+      const occurrenceTimeEl = document.getElementById('occurrenceTime');
+      const warningPill = document.getElementById('warningPill');
+      const magDisplay = document.getElementById('magDisplay');
+      const depthDisplay = document.getElementById('depthDisplay');
+      const localBadge = document.getElementById('localIntensityBadge');
+      const localNumEl = document.getElementById('localNum');
+      const localSuffixEl = document.getElementById('localSuffix');
+
+      // 入力要素
+      const inputHeadline = document.getElementById('inputHeadline');
+      const inputOccurrenceTime = document.getElementById('inputOccurrenceTime');
+      const nowTimeBtn = document.getElementById('nowTimeBtn');
+      const inputMag = document.getElementById('inputMag');
+      const inputDepth = document.getElementById('inputDepth');
+      const selectMaxInt = document.getElementById('selectMaxInt');
+      const selectLocalInt = document.getElementById('selectLocalInt');
+      const inputSeconds = document.getElementById('inputSeconds');
+      const inputReportNum = document.getElementById('inputReportNum');
+      const selectFinalReport = document.getElementById('selectFinalReport');
+
+      // 震度ごとの配色定義（気象庁・防災アプリ準拠）
+      const INTENSITY_STYLES = {
+        '7':   { bg: '#960096', fg: '#ffffff' },
+        '6強': { bg: '#a50021', fg: '#ffffff' },
+        '6弱': { bg: '#d91c1c', fg: '#ffffff' },
+        '5強': { bg: '#ff7800', fg: '#0b0b0d' },
+        '5弱': { bg: '#f4a400', fg: '#0b0b0d' },
+        '4':   { bg: '#f5d000', fg: '#0b0b0d' },
+        '3':   { bg: '#1e88e5', fg: '#ffffff' },
+        '2':   { bg: '#26a69a', fg: '#ffffff' },
+        '1':   { bg: '#607d8b', fg: '#ffffff' }
+      };
+
+      function parseIntensity(val) {
+        const num = val.charAt(0);
+        const suffix = val.slice(1);
+        return { num, suffix };
+      }
+
+      function applySimulationSettings() {
+        // 見出し・地震発生時刻
+        epicenterHeadline.textContent = inputHeadline.value || '地震情報';
+        occurrenceTimeEl.textContent = inputOccurrenceTime.value || '--/-- --:--:--';
+
+        // M・深さ
+        const magVal = parseFloat(inputMag.value);
+        magDisplay.textContent = isNaN(magVal) ? '0.0' : magVal.toFixed(1);
+
+        const depthVal = parseInt(inputDepth.value, 10);
+        depthDisplay.textContent = isNaN(depthVal) ? '0' : Math.max(0, depthVal);
+
+        // 報数テキスト組み立て
+        const repNum = parseInt(inputReportNum.value, 10);
+        const validRepNum = isNaN(repNum) ? 1 : Math.max(1, repNum);
+        const reportLabel = selectFinalReport.value === 'true' ? '最終報' : `第${validRepNum}報`;
+
+        // 最大震度
+        const maxVal = selectMaxInt.value;
+        const parsedMax = parseIntensity(maxVal);
+        maxNumEl.textContent = parsedMax.num;
+        maxKanjiEl.textContent = parsedMax.suffix;
+        // 震度5弱以上なら警報スタイル（赤い背景点滅）、4以下なら予報スタイル
+        const isWarning = ['7', '6強', '6弱', '5強', '5弱'].includes(maxVal);
+        if (isWarning) {
+          topAlertPanel.style.background = 'linear-gradient(180deg, #980f0f 0%, #860c0c 100%)';
+          reportSubtitle.textContent = `緊急地震速報 (警報) ${reportLabel}`;
+          warningPill.textContent = '強い揺れに警戒!';
+          warningPill.style.backgroundColor = '#cc1616';
+          warningPill.classList.add('is-blinking');
+        } else {
+          topAlertPanel.style.background = 'linear-gradient(180deg, #b85d00 0%, #994d00 100%)';
+          reportSubtitle.textContent = `緊急地震速報 (予報) ${reportLabel}`;
+          warningPill.textContent = '揺れに注意';
+          warningPill.style.backgroundColor = '#d97706';
+          warningPill.classList.remove('is-blinking');
+        }
+
+        // 現在地の震度
+        const localVal = selectLocalInt.value;
+        const parsedLocal = parseIntensity(localVal);
+        const badgeStyle = INTENSITY_STYLES[localVal] || INTENSITY_STYLES['5弱'];
+        localNumEl.textContent = parsedLocal.num;
+        localSuffixEl.textContent = parsedLocal.suffix;
+        localSuffixEl.style.display = parsedLocal.suffix ? 'inline' : 'none';
+        localBadge.style.backgroundColor = badgeStyle.bg;
+        localBadge.style.color = badgeStyle.fg;
+
+        // 秒数更新
+        const secVal = parseFloat(inputSeconds.value);
+        startSeconds = isNaN(secVal) ? 0 : Math.max(0, secVal);
+        replayBtn.textContent = `最初から再生 (${startSeconds.toFixed(1)}秒)`;
+      }
+
+      function resetCountdown() {
+        applySimulationSettings();
+        remaining = startSeconds;
+        isRunning = remaining > 0;
+        lastTimestamp = performance.now();
+        toggleBtn.textContent = isRunning ? '一時停止' : '到達完了';
+        updateDisplay(remaining);
+      }
+
+      function updateDisplay(val) {
+        if (val <= 0) {
+          digitsEl.textContent = '0';
+        } else {
+          digitsEl.textContent = val.toFixed(1);
+        }
+      }
+
+      function tick(timestamp) {
+        if (!lastTimestamp) {
+          lastTimestamp = timestamp;
+        }
+
+        const deltaSec = (timestamp - lastTimestamp) / 1000;
+        lastTimestamp = timestamp;
+
+        if (isRunning && remaining > 0) {
+          remaining = Math.max(0, remaining - deltaSec);
+          updateDisplay(remaining);
+
+          if (remaining === 0) {
+            isRunning = false;
+            toggleBtn.textContent = '到達完了';
+          }
+        }
+
+        requestAnimationFrame(tick);
+      }
+
+      // 入力変更時に即時反映
+      [inputHeadline, inputOccurrenceTime, inputMag, inputDepth, selectMaxInt, selectLocalInt, inputReportNum, selectFinalReport].forEach((el) => {
+        el.addEventListener('input', applySimulationSettings);
+        el.addEventListener('change', applySimulationSettings);
+      });
+
+      nowTimeBtn.addEventListener('click', () => {
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        inputOccurrenceTime.value = `${pad(now.getMonth() + 1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+        applySimulationSettings();
+      });
+
+      inputSeconds.addEventListener('input', resetCountdown);
+      inputSeconds.addEventListener('change', resetCountdown);
+
+      replayBtn.addEventListener('click', resetCountdown);
+
+      toggleBtn.addEventListener('click', () => {
+        if (remaining <= 0) {
+          resetCountdown();
+          return;
+        }
+        isRunning = !isRunning;
+        lastTimestamp = performance.now();
+        toggleBtn.textContent = isRunning ? '一時停止' : '再開';
+      });
+
+      applySimulationSettings();
+      updateDisplay(startSeconds);
+      requestAnimationFrame(tick);
+    })();
+  </script>
+</body>
+</html>
